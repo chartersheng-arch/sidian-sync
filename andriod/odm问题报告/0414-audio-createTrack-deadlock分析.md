@@ -320,20 +320,20 @@ int32_t gsl_send_spf_cmd(...) {
 
 ### P0 - 紧急
 
-| 方案 | 说明 |
-|------|------|
-| **给 gsl_graph_close() 增加超时** | 在 `open_close_lock` 获取处添加超时，建议 2-5 秒 |
-| **给 gsl_close() 增加超时** | 避免永久阻塞，建议 2-5 秒超时 |
-| **lockGraph 使用 try_lock** | 超时后强制释放或重试，避免全局死锁 |
+| 方案 | 说明 | 代码位置 |
+|------|------|----------|
+| **gsl_send_spf_cmd_wait_for_basic_rsp 超时后强制返回** | 已有超时机制，但超时后应设置错误标志并强制返回，不应永久等待 | gsl_common.c:142 |
+| **lockGraph 使用 try_lock** | 超时后强制释放或重试，避免全局死锁 | StreamCompress.cpp:249 |
+| **gsl_graph_close 单步超时** | 在 `gsl_send_spf_cmd_wait_for_basic_rsp` 之后检查返回值，超时则强制跳出 | gsl_graph.c:4292 |
 
 ### P1 - 重要
 
-| 方案 | 说明 |
-|------|------|
-| **分离 lockGraph 锁粒度** | 改为 per-graph 锁，避免全局影响 |
-| **增加设备状态校验** | 操作前确认设备已正确打开 |
-| **添加超时打断机制** | 定期检查 graph 状态，超时强制 cleanup |
-| **确认 open_close_lock 持有者** | 检查是否有线程异常持有此锁 |
+| 方案 | 说明 | 代码位置 |
+|------|------|----------|
+| **分离 lockGraph 锁粒度** | 改为 per-graph 锁，避免全局影响 | ResourceManager.h:893 |
+| **增加设备状态校验** | 操作前确认设备已正确打开，避免异常路径 | StreamCompress::close |
+| **添加 gsl_signal_set 超时保护** | 确保信号在合理时间内被设置，否则上报异常 | gsl_common.c:80 |
+| **DSP 响应监控** | 添加 DSP 命令响应超时监控，快速失败 | gsl_common.c |
 
 ### P2 - 优化
 
@@ -341,30 +341,51 @@ int32_t gsl_send_spf_cmd(...) {
 |------|------|
 | **分离 standby 和 close 流程** | 避免 close 阻塞影响 standby |
 | **添加死锁检测** | 定期检测 lockGraph 持有时间 |
-| **DSP 响应监控** | 添加 DSP 命令响应超时监控 |
+| **GPR/SPD 通信健康检查** | 检测命令发送后是否有响应，超时重试或报错 |
 
 ---
 
 ## 待验证项
 
 - [ ] **查 dmesg** - 确认是否有 ASoC/DMA 驱动层错误
-- [ ] **查 AGM graph 资源管理** - graph_handle 0x547534c 是否被多线程共享
 - [ ] **查 DSP 固件日志** - 确认 GRAPH_CLOSE (opcode 0x1001004) 是否有响应
 - [ ] **查设备 open/close 状态机** - 为何 device is not open
-- [ ] **查 open_close_lock 持有链** - 确认是否有其他线程持有 `gsl_ctxt.open_close_lock` 并卡住
+- [ ] **查 GSL_SPF_TIMEOUT_MS 超时值** - 确认超时值是否合理，是否在合理时间内返回
+- [ ] **查 graph_signal 设置时机** - 确认 DSP 响应后是否正确设置了 graph_signal[GRAPH_CTRL_GRP3_CMD_SIG]
+- [ ] **查 GPR/SPD 通信路径** - 确认 APM_CMD_GRAPH_CLOSE 命令是否到达 DSP
 
 ---
 
 ## 关键代码位置
 
+### PAL/AGM 层
+
 | 文件 | 行号 | 说明 |
 |------|------|------|
 | `StreamCompress.cpp` | 249-251 | lockGraph + session->close() |
-| `graph.c` | 780-818 | **graph_close 卡住在 gsl_close** |
+| `graph.c` | 780-818 | graph_close → gsl_close |
 | `session_obj.c` | 1262-1321 | session_close 流程 |
 | `StreamPCM.cpp` | 727 | INPUT stop 等待 lockGraph |
-| `AudioStream.cpp` | 4235 | StreamInPrimary::Standby 流锁 |
+
+### GSL 层
+
+| 文件 | 行号 | 说明 |
+|------|------|------|
+| `gsl_main.c` | 1325-1360 | gsl_close 完整流程 |
+| `gsl_main.c` | 1331 | gsl_main_start_client_op_blocking |
+| `gsl_main.c` | 1344 | gsl_graph_close 调用 |
+| `gsl_graph.c` | 4292-4341 | **gsl_graph_close 核心实现** |
+| `gsl_graph.c` | 2142-2146 | gsl_send_spf_cmd_wait_for_basic_rsp 调用 |
+| `gsl_common.c` | 142-221 | **gsl_send_spf_cmd 等待响应** |
+| `gsl_common.c` | 189 | gsl_signal_timedwait 超时等待 |
+| `gsl_common.c` | 53-78 | gsl_signal_timedwait 实现 |
+
+### AudioStream 层
+
+| 文件 | 行号 | 说明 |
+|------|------|------|
 | `AudioStream.cpp` | 2186 | StreamOutPrimary::Standby 流锁 |
+| `AudioStream.cpp` | 2296 | Standby Exit 日志 |
 
 ---
 
