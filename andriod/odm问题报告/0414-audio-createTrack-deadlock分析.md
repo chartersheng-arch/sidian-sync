@@ -100,13 +100,17 @@ AudioPolicyService_Mutex 持有 → createTrack 超时
 
 ## tid 9036 卡住详细分析
 
-### 日志证据
+### 日志证据（已修正）
+
+**关键发现：`graph_stop` 正常退出，`gsl_close` 卡住！**
 
 ```
-02:45:46.968  9036 I PAL: API: pal_stream_close: 259: Enter. Stream handle :0xb400007d86295f50K
 02:45:46.968  9036 I AGM: API: agm_session_aif_connect: 603 disconnecting aifid:6 with session id=105
 02:45:46.968  9036 D AGM: graph: graph_stop: 960 entry graph_handle 0x547534c
-// 之后无日志，卡住
+02:45:46.968  9036 I gsl: gsl_send_spf_cmd:165 sending pkt with token 0x21230000, opcode 0x1001004
+02:45:46.973  9036 D AGM: graph: graph_stop: 1005 exit, ret 0     ← graph_stop 正常退出 ✅
+02:45:46.973  ... (SessionAlsaUtils, session_obj_set_sess_aif_metadata)
+// 02:45:46.973 之后 tid 9036 完全无日志，graph_close 无 exit 日志 ❌
 ```
 
 ### 代码流程（StreamCompress::close）
@@ -114,33 +118,74 @@ AudioPolicyService_Mutex 持有 → createTrack 超时
 ```cpp
 // line 249-251
 rm->lockGraph();                    // 获取锁
-status = session->close(this);      // 卡在这里！
+status = session->close(this);      // 内部 graph_close 卡住！
 rm->unlockGraph();                  // 永远不会执行
 ```
 
-### 卡住点推测
+### session_close 内部调用链
 
-| 可能原因 | 依据 |
-|----------|------|
-| **DSP/固件无响应** | AGM 库与 DSP 通信，graph_stop 后无响应 |
-| **graph 资源死锁** | graph_handle 0x547534c 可能被多线程共享 |
-| **AGM 内部调用链死锁** | disconnect + graph_stop 可能相互等待 |
-| **设备状态异常** | `ioctl device is not open` 表明设备状态异常 |
+```c
+session_close() {
+    pthread_mutex_lock(&hwep_lock);     // 1277
+    if (sess_obj->state == SESSION_STARTED) {
+        graph_stop(...);   // 1279 - exit ret 0 ✅
+    }
+    graph_close(...);      // 1285 - 无 exit 日志 ❌ 卡住点
+    pthread_mutex_unlock(&hwep_lock);  // 1316 永远不会执行
+}
+```
+
+### graph_close 内部卡住点
+
+```c
+graph_close() {
+    pthread_mutex_lock(&graph_obj->lock);  // 790
+    ret = gsl_close(graph_obj->graph_handle);  // 793 ← 卡住！
+    // 后续代码不会执行
+    pthread_mutex_unlock(&graph_obj->lock);    // 813 不会执行
+    pthread_mutex_destroy(&graph_obj->lock);   // 814 不会执行
+    free(graph_obj);                           // 815 不会执行
+}
+```
+
+### 卡住点确认
+
+| 阶段 | 状态 | 证据 |
+|------|------|------|
+| `graph_stop` | ✅ 正常退出 | exit ret 0，gsl_send_spf_cmd 正常返回 |
+| `gsl_close` | ❌ **卡住** | 无 exit 日志，无 gsl_send_spf_cmd 日志 |
+| `rm->unlockGraph()` | ❌ 永远不执行 | 被 session->close() 阻塞 |
+| `hwep_lock` 释放 | ❌ 永远不执行 | session_close 未返回 |
+
+### 推测：`gsl_close` 内部流程
+
+```
+gsl_close(graph_handle)
+    → 发送 DSP 命令（可能 opcode 未知或无日志）
+    → 等待 DSP 响应 ← 卡住
+    → 永不返回
+```
+
+可能原因：
+1. **DSP 固件无响应**：`gsl_close` 发送的命令无 ACK
+2. **graph_handle 状态异常**：graph 已处于异常状态，gsl_close 内部死锁
+3. **Global Graph Lock 问题**：`gsl_close` 内部可能也需要获取全局锁，与其他操作冲突
 
 ---
 
 ## 根因总结
 
-### 第一层根因：session->close() 阻塞
+### 第一层根因：gsl_close() 阻塞
 
-**tid 9036** 调用 `session->close(this)` 后，AGM 层的 `graph_stop` 开始执行但永远不返回，导致：
-- `rm->lockGraph()` 永久持有
+**tid 9036** 调用 `session->close(this)` 后，`graph_stop` 正常返回，但 `graph_close()` 内部的 `gsl_close()` 阻塞：
+- `gsl_close()` 发送 DSP 命令后无响应，卡在等待
+- 导致 `rm->lockGraph()` 和 `hwep_lock` 永久持有
 - 所有等待 `lockGraph()` 的线程全部卡住
 
 ### 第二层根因：HAL 内部锁设计缺陷
 
 - `lockGraph()` 是全局锁，被多个 stream 操作共享
-- 没有超时保护机制
+- `gsl_close()` 没有超时保护机制
 - `session->close()` 阻塞导致全局死锁
 
 ### 第三层根因：设备状态异常
@@ -159,9 +204,9 @@ voteSleepMonitor: ioctl device is not open
 
 | 方案 | 说明 |
 |------|------|
+| **给 gsl_close() 增加超时** | 避免永久阻塞，建议 2-5 秒超时 |
 | **给 session->close() 增加超时** | 避免永久阻塞，建议 2-5 秒超时 |
 | **lockGraph 使用 try_lock** | 超时后强制释放或重试 |
-| **AGM 层 graph_stop 增加超时保护** | 防止与 DSP 通信死锁 |
 
 ### P1 - 重要
 
@@ -184,7 +229,7 @@ voteSleepMonitor: ioctl device is not open
 
 - [ ] **查 dmesg** - 确认是否有 ASoC/DMA 驱动层错误
 - [ ] **查 AGM graph 资源管理** - graph_handle 0x547534c 是否被多线程共享
-- [ ] **查 DSP 固件日志** - 确认 graph_stop 为何无响应
+- [ ] **查 DSP 固件日志** - 确认 **gsl_close** 为何无响应（graph_stop 已确认正常）
 - [ ] **查设备 open/close 状态机** - 为何 device is not open
 
 ---
@@ -193,7 +238,9 @@ voteSleepMonitor: ioctl device is not open
 
 | 文件 | 行号 | 说明 |
 |------|------|------|
-| `StreamCompress.cpp` | 249-251 | lockGraph + session->close() 卡住 |
+| `StreamCompress.cpp` | 249-251 | lockGraph + session->close() |
+| `graph.c` | 780-818 | **graph_close 卡住在 gsl_close** |
+| `session_obj.c` | 1262-1321 | session_close 流程 |
 | `StreamPCM.cpp` | 727 | INPUT stop 等待 lockGraph |
 | `AudioStream.cpp` | 4235 | StreamInPrimary::Standby 流锁 |
 | `AudioStream.cpp` | 2186 | StreamOutPrimary::Standby 流锁 |

@@ -321,3 +321,110 @@ EOF"
 | 延迟 | "latency high", "buffer full", "CPU stuck" |
 | 断续 | "underrun", "gap", "xrun", "dropped" |
 | 爆音 | "gain ramp", "pop", "clamp", "mute state change" |
+
+---
+
+## 10. 代码与日志解析准则（重要）
+
+### ⚠️ 铁律：区分格式化字符串与实际输出
+
+**常见误区：混淆C++ printf 格式占位符与实际日志输出值**
+
+#### 10.1 典型错误案例
+
+**代码：**
+```cpp
+PAL_VERBOSE(LOG_TAG, "Inside PAL_AUDIO_OUTPUT device count - %zu", mDevices.size());
+```
+
+**日志实际输出：**
+```
+Inside PAL_AUDIO_OUTPUT device count - 1
+```
+
+**❌ 错误分析：**
+```
+AI误判：mDevices.size() = -1 (严重错误！size_t被解析为负数)
+```
+
+**✅ 正确理解：**
+```
+日志中的 "-1" 不是数学减法，而是格式化字符串中 %zu 输出的正数 "1"
+mDevices.size() 的实际值 = 1（表示有1个设备）
+```
+
+#### 10.2 常见格式化占位符解析表
+
+| 占位符 | 类型 | 日志示例 | 实际含义 |
+|--------|------|----------|----------|
+| `%zu` | size_t (无符号) | `count - 1` | count = 1 (正整数) |
+| `%d` | int (有符号) | `value - 5` | value = 5 或 value = -5 |
+| `%u` | unsigned int | `bytes - 1024` | bytes = 1024 (正数) |
+| `%x` | hex (无符号) | `flags - 0x2` | flags = 0x2 |
+| `%llu` | unsigned long long | `frames - 1000` | frames = 1000 |
+| `%lld` | long long | `timestamp - 5000` | timestamp = 5000 或 -5000 |
+| `%s` | string | `device - speaker` | device = "speaker" |
+
+#### 10.3 关键判断原则
+
+**1. 看上下文判断正负**
+```
+// 代码
+PAL_VERBOSE(LOG_TAG, "device count - %zu", mDevices.size());
+
+// 日志
+device count - 1
+
+// 分析：size_t 永远 >= 0，所以 "1" 是正数，不是 "-1"
+```
+
+**2. 数值来源决定类型**
+```
+// mDevices.size() 返回 size_t (无符号)，绝不可能为负
+// 所以日志中的 "1" 就是 1，不是 -1
+```
+
+**3. 减号在格式化字符串中的位置**
+```
+// 错误：认为 "-1" 是负数
+"count - %zu"  →  输出 "count - 1"  (1是正数)
+
+// 如果要输出负数，代码会这样写：
+"count = %zd"  →  输出 "count = -1"  (只有%zd才可能输出负数)
+```
+
+#### 10.4 快速判断方法
+
+```
+当看到日志中有 "- 数字" 时，按以下步骤判断：
+
+1. 找到对应的代码行
+2. 确认 %与d/z/u/l 等修饰符的组合
+3. 判断类型：
+   - %zu → 绝对正值，不可能为负
+   - %zd → 可能为负（size_t的signed版本）
+   - %d  → 需要看上下文才能确定正负
+4. 确认后，再判断该值是否异常
+```
+
+#### 10.5 避免混淆的验证方法
+
+```bash
+# 搜索源码确认变量类型
+grep -rn "mDevices.size()" vendor/xxx/audio/
+
+# 搜索类似日志的格式化字符串
+grep -rn "device count - %zu" vendor/xxx/audio/
+
+# 查看该变量在其他日志中的输出
+grep -rn "mDevices.size()" vendor/xxx/audio/ | grep -E "LOG|PRINT|VERBOSE"
+```
+
+#### 10.6 分析自检清单
+
+```
+[ ] 日志中的 "-" 是格式化字符串的分隔符，还是数学减法的结果？
+[ ] 占位符类型（%zu/%d/%zd）对应的变量是否可能为负？
+[ ] size_t 类型的变量（如 .size()）是否被误判为负数？
+[ ] hex值（如 0xFFFFFFFF）是否被误认为有符号整数？
+```
