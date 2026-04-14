@@ -12,8 +12,8 @@
 | [[01-claude skills/android-audio-debugging/SKILL.md\|android-audio-debugging]] | Android Audio 系统化问题分析，处理无声、杂音、延迟、爆音等音频故障 |
 | [[01-claude skills/api-designer/SKILL.md\|api-designer]] | REST/GraphQL API 架构设计，用于设计新的 API 或改进现有 API |
 | [[01-claude skills/api-documenter/SKILL.md\|api-documenter]] | OpenAPI/Swagger 规范文档编写，用于记录 REST 或 GraphQL API |
-| [[01-claude skills/architecting-solutions/SKILL.md\|architecting-solutions]] | 技术方案设计，用于用户说"design solution"、"architecture design"、"方案设计"时 |
-| [[01-claude skills/auto-trigger/SKILL.md\|auto-trigger]] | 工作流自动触发钩子，定义 skills 之间的自动触发关系（配置型 skill） |
+| [[01-claude skills/architecting-solutions/SKILL.md\|architecting-solutions]] | 技术方案设计，用于"design solution"、"architecture design"、"方案设计"时 |
+| [[01-claude skills/auto-trigger/SKILL.md\|auto-trigger]] | 工作流自动触发钩子，定义 skills 之间的自动触发关系（配置型 skill，不单独使用） |
 | [[01-claude skills/code-reviewer/SKILL.md\|code-reviewer]] | 代码审查，审查 PR 和代码变更的质量、安全性和最佳实践 |
 | [[01-claude skills/commit-helper/SKILL.md\|commit-helper]] | Git 提交信息编写，按照 Conventional Commits 规范格式化提交信息 |
 | [[01-claude skills/context-ZH/SKILL.md\|context-ZH]] | 中文语境增强，用户使用中文交流时自动激活，确保简体中文输出 |

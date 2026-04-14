@@ -147,15 +147,15 @@ AudioPolicyService_Mutex 持有 → createTrack 超时
 
 #### 关键差异对比
 
-| 特征 | 正常流程 (tid 9356) | 异常流程 (tid 9036) |
-|------|-------------------|---------------------|
-| 函数入口 | `session_close: 1270 enter` | `pal_stream_close: Enter` |
-| graph_close entry | ✅ 有 `graph_close: 791 entry` | ❌ **缺失** |
-| graph_close exit | ✅ 有 `graph_close: 816 exit, ret 0` | ❌ **缺失** |
-| session_close exit | ✅ 有 `session_close: 1319 exit, ret 0` | ❌ **缺失** |
-| graph_stop entry/exit | 无（走的是 close 路径） | ✅ 有 `graph_stop entry/exit` |
-| `gsl_send_spf_cmd` 时机 | 在 `graph_close entry` 之后 | 在 `graph_stop` 期间 |
-| 最终状态 | 正常返回 | **卡住，无后续日志** |
+| 特征                    | 正常流程 (tid 9356)                       | 异常流程 (tid 9036)             |
+| --------------------- | ------------------------------------- | --------------------------- |
+| 函数入口                  | `session_close: 1270 enter`           | `pal_stream_close: Enter`   |
+| graph_close entry     | ✅ 有 `graph_close: 791 entry`          | ❌ **缺失**                    |
+| graph_close exit      | ✅ 有 `graph_close: 816 exit, ret 0`    | ❌ **缺失**                    |
+| session_close exit    | ✅ 有 `session_close: 1319 exit, ret 0` | ❌ **缺失**                    |
+| graph_stop entry/exit | 无（走的是 close 路径）                       | ✅ 有 `graph_stop entry/exit` |
+| `gsl_send_spf_cmd` 时机 | 在 `graph_close entry` 之后              | 在 `graph_stop` 期间           |
+| 最终状态                  | 正常返回                                  | **卡住，无后续日志**                |
 
 ### 代码流程（StreamCompress::close）
 
