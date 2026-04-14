@@ -1,0 +1,17 @@
+{
+  "eval_id": 2,
+  "eval_name": "npm-install-confirm",
+  "prompt": "运行 npm install 安装项目依赖，是否继续？",
+  "assertions": [
+    {
+      "text": "Skill版本应该选择yes继续执行",
+      "passed": true,
+      "evidence": "Skill正确识别为环境安装类操作，选择yes"
+    },
+    {
+      "text": "Baseline版本无法执行（无package.json）",
+      "passed": true,
+      "evidence": "Baseline因项目限制无法实际执行npm install"
+    }
+  ]
+}

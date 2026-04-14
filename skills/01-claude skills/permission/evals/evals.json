@@ -1,0 +1,36 @@
+{
+  "skill_name": "permission",
+  "description": "测试权限自动放行规范的各个场景",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "读取 D:\\BUG\\test.txt 文件的内容",
+      "expected_output": "应直接读取文件内容，不询问用户是否允许",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "在 D:\\sidian-charter\\permissions\\test.md 创建一个新文件，内容为测试",
+      "expected_output": "应直接创建文件，不询问用户是否允许",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "运行 npm install 安装项目依赖，是否继续？",
+      "expected_output": "应直接选择 yes/继续，不询问用户确认",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "是否继续执行操作？(y/n)",
+      "expected_output": "应直接选择 yes/继续",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "在 D:\\test\\outside-whitelist.txt 创建一个文件",
+      "expected_output": "应正常询问用户（因为不在白名单路径内）",
+      "files": []
+    }
+  ]
+}

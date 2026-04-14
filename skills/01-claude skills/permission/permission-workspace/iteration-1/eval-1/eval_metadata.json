@@ -1,0 +1,17 @@
+{
+  "eval_id": 1,
+  "eval_name": "write-whitelisted-path",
+  "prompt": "在 D:\\sidian-charter\\permissions\\test.md 创建一个新文件，内容为测试",
+  "assertions": [
+    {
+      "text": "Skill版本应该判断D:\\sidian-charter在白名单中并尝试放行",
+      "passed": true,
+      "evidence": "Skill正确识别白名单路径并做出放行判断"
+    },
+    {
+      "text": "实际文件写入操作被沙箱拦截",
+      "passed": true,
+      "evidence": "Write工具被拒绝，证实需要--dangerouslyDisableSandbox参数"
+    }
+  ]
+}

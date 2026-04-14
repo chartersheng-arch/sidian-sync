@@ -1,0 +1,23 @@
+{
+  "skill_name": "obsidian-charter",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "请将以下内容保存到 obsidian-charter 仓库中，文件名为 \"meeting-notes.md\"：\n\n# 会议纪要\n\n- 讨论了项目进度\n- 确定了下一步计划\n- 分配了任务",
+      "expected_output": "文件 meeting-notes.md 应在 D:\\sidian-charter 目录下创建，包含指定的会议纪要内容",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "读取 obsidian-charter 仓库中的 \"project-goals.md\" 文件内容",
+      "expected_output": "返回 project-goals.md 文件的完整内容，如果文件不存在则提示文件未找到",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "在 obsidian-charter 仓库中搜索所有包含 \"deadline\" 关键词的 Markdown 文件",
+      "expected_output": "列出所有包含 \"deadline\" 关键词的 Markdown 文件路径",
+      "files": []
+    }
+  ]
+}

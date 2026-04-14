@@ -1,10 +1,6 @@
 # Obsidian 配置（不同设备配置可能冲突）
 .obsidian/
 
-# Claude 本地配置（不上传）
-.claude/
-.claudian/
-
 # 忽略所有 .md 以外的文件（按需调整）
 # *.png
 # *.jpg

@@ -1,0 +1,2 @@
+# Android Audio Diagnosis MCP Server Dependencies
+mcp>=0.10.0

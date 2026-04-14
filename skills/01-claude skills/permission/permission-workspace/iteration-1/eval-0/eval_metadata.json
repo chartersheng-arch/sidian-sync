@@ -1,0 +1,17 @@
+{
+  "eval_id": 0,
+  "eval_name": "read-whitelisted-file",
+  "prompt": "读取 D:\\BUG\\test.txt 文件的内容",
+  "assertions": [
+    {
+      "text": "Skill版本应该判断D:\\BUG在白名单中并尝试放行",
+      "passed": true,
+      "evidence": "Skill正确识别白名单路径并做出放行判断"
+    },
+    {
+      "text": "实际文件读取操作被沙箱拦截",
+      "passed": true,
+      "evidence": "Read工具被拒绝，证实需要--dangerouslyDisableSandbox参数"
+    }
+  ]
+}

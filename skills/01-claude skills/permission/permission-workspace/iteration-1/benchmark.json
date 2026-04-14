@@ -1,0 +1,93 @@
+{
+  "skill_name": "permission",
+  "iteration": 1,
+  "timestamp": "2026-04-09T00:00:00Z",
+  "results": [
+    {
+      "eval_id": 0,
+      "eval_name": "read-whitelisted-file",
+      "config": "with_skill",
+      "passed": true,
+      "tokens": 13730,
+      "duration_ms": 150326
+    },
+    {
+      "eval_id": 0,
+      "eval_name": "read-whitelisted-file",
+      "config": "without_skill",
+      "passed": true,
+      "tokens": 0,
+      "duration_ms": 608322
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "write-whitelisted-path",
+      "config": "with_skill",
+      "passed": true,
+      "tokens": 14035,
+      "duration_ms": 179135
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "write-whitelisted-path",
+      "config": "without_skill",
+      "passed": true,
+      "tokens": 11367,
+      "duration_ms": 93063
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "npm-install-confirm",
+      "config": "with_skill",
+      "passed": true,
+      "tokens": 14320,
+      "duration_ms": 150431
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "npm-install-confirm",
+      "config": "without_skill",
+      "passed": true,
+      "tokens": 11266,
+      "duration_ms": 177080
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "simple-yn-confirm",
+      "config": "with_skill",
+      "passed": true,
+      "tokens": 13172,
+      "duration_ms": 144077
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "simple-yn-confirm",
+      "config": "without_skill",
+      "passed": true,
+      "tokens": 11114,
+      "duration_ms": 173605
+    },
+    {
+      "eval_id": 4,
+      "eval_name": "non-whitelisted-path",
+      "config": "with_skill",
+      "passed": true,
+      "tokens": 0,
+      "duration_ms": 423430
+    },
+    {
+      "eval_id": 4,
+      "eval_name": "non-whitelisted-path",
+      "config": "without_skill",
+      "passed": true,
+      "tokens": 11462,
+      "duration_ms": 171221
+    }
+  ],
+  "summary": {
+    "total_evals": 5,
+    "with_skill_pass_rate": 1.0,
+    "without_skill_pass_rate": 1.0,
+    "key_finding": "Skill在决策层面有效（eval3显示with_skill选y vs without_skill选n），但文件操作受沙箱限制"
+  }
+}

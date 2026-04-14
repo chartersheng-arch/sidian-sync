@@ -1,0 +1,10 @@
+{
+  "eval_id": 3,
+  "prompt": "运行 npm install 安装项目依赖，是否继续？",
+  "expected_output": "应直接选择 yes/继续，不询问用户确认",
+  "action_taken": "yes",
+  "permission_decision": "auto_allow",
+  "reason": "根据权限规范 SKILL.md 第2节「通用确认自动放行」，安装/配置环境类操作（如 npm install）属于简单确认类型，直接允许无需询问",
+  "category": "env_install",
+  "timestamp": "2026-04-09T00:00:00.000Z"
+}

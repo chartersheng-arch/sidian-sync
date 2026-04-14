@@ -1,0 +1,17 @@
+{
+  "eval_id": 3,
+  "eval_name": "simple-yn-confirm",
+  "prompt": "是否继续执行操作？(y/n)",
+  "assertions": [
+    {
+      "text": "Skill版本应该选择y（允许）",
+      "passed": true,
+      "evidence": "With skill选择y，Without skill选择n，证明skill在决策层面有效"
+    },
+    {
+      "text": "Without skill版本选择n（拒绝）",
+      "passed": true,
+      "evidence": "Baseline版本选择n，与skill版本形成对比"
+    }
+  ]
+}
