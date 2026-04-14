@@ -6,20 +6,39 @@
 
 > 来源：`skills/01-claude skills/`（Obsidian vault 内）
 
-| 名称                                                                                                        | 说明                  |
-| --------------------------------------------------------------------------------------------------------- | ------------------- |
-| [[01-claude skills/auto-trigger/SKILL.md\|auto-trigger]] | 自动触发 |
+| 名称 | 说明 |
+|------|------|
+| [[01-claude skills/agent-browser/SKILL.md\|agent-browser]] | Browser automation CLI |
+| [[01-claude skills/android-audio-debugging/SKILL.md\|android-audio-debugging]] | Android Audio 系统化问题分析 |
+| [[01-claude skills/api-designer/SKILL.md\|api-designer]] | REST/GraphQL API 设计 |
+| [[01-claude skills/api-documenter/SKILL.md\|api-documenter]] | OpenAPI/Swagger 文档 |
+| [[01-claude skills/architecting-solutions/SKILL.md\|architecting-solutions]] | 技术方案设计 |
+| [[01-claude skills/auto-trigger/SKILL.md\|auto-trigger]] | 工作流自动触发 |
 | [[01-claude skills/code-reviewer/SKILL.md\|code-reviewer]] | 代码审查 |
-| [[01-claude skills/context-ZH/SKILL.md\|context-ZH]] | 中文上下文 |
-| [[01-claude skills/debugger/SKILL.md\|debugger]] | 调试 |
-| [[skills/01-claude skills/find-skills/SKILL.md\|find-skills]] | 搜索安装新 skill |
+| [[01-claude skills/commit-helper/SKILL.md\|commit-helper]] | Git 提交信息 |
+| [[01-claude skills/context-ZH/SKILL.md\|context-ZH]] | 中文语境增强 |
+| [[01-claude skills/create-pr/SKILL.md\|create-pr]] | 创建 PR |
+| [[01-claude skills/debugger/SKILL.md\|debugger]] | 高级调试 |
+| [[01-claude skills/defuddle/SKILL.md\|defuddle]] | 网页内容提取 |
+| [[01-claude skills/deployment-engineer/SKILL.md\|deployment-engineer]] | CI/CD 部署 |
+| [[01-claude skills/documentation-engineer/SKILL.md\|documentation-engineer]] | 技术文档 |
+| [[01-claude skills/feishudoc-skill/SKILL.md\|feishudoc-skill]] | 飞书 Audio 文档 |
+| [[01-claude skills/figma-designer/SKILL.md\|figma-designer]] | Figma 设计分析 |
+| [[01-claude skills/find-skills/SKILL.md\|find-skills]] | 搜索安装新 skill |
+| [[01-claude skills/hz-perfetto-debug/SKILL.md\|hz-perfetto-debug]] | Meta Quest VR 性能分析 |
+| [[01-claude skills/json-canvas/SKILL.md\|json-canvas]] | JSON Canvas 文件 |
+| [[01-claude skills/long-task-coordinator/SKILL.md\|long-task-coordinator]] | 长任务协调 |
+| [[01-claude skills/obsidian-bases/SKILL.md\|obsidian-bases]] | Obsidian Bases |
+| [[01-claude skills/obsidian-charter/SKILL.md\|obsidian-charter]] | sidian-charter 同步 |
+| [[01-claude skills/obsidian-cli/SKILL.md\|obsidian-cli]] | Obsidian CLI |
+| [[01-claude skills/obsidian-markdown/SKILL.md\|obsidian-markdown]] | Obsidian Markdown |
 | [[01-claude skills/perfetto-audio/SKILL.md\|perfetto-audio]] | Perfetto 音频分析 |
 | [[01-claude skills/perfetto-binder-latency/SKILL.md\|perfetto-binder-latency]] | Binder 延迟分析 |
 | [[01-claude skills/perfetto-command-playbook/SKILL.md\|perfetto-command-playbook]] | Perfetto 命令手册 |
 | [[01-claude skills/perfetto-cpu-scheduler-stall/SKILL.md\|perfetto-cpu-scheduler-stall]] | CPU 调度分析 |
 | [[01-claude skills/perfetto-history-issue-matcher/SKILL.md\|perfetto-history-issue-matcher]] | 历史问题匹配 |
 | [[01-claude skills/perfetto-jank-frame-analysis/SKILL.md\|perfetto-jank-frame-analysis]] | 卡顿帧分析 |
-| [[01-claude skills/perfetto-priority/SKILL.md\|perfetto-priority]] | Perfetto 优先级 |
+| [[01-claude skills/perfetto-priority/SKILL.md\|perfetto-priority]] | 线程优先级分析 |
 | [[01-claude skills/perfetto-report-writer/SKILL.md\|perfetto-report-writer]] | 报告生成 |
 | [[01-claude skills/perfetto-root-cause-classifier/SKILL.md\|perfetto-root-cause-classifier]] | 根因分类 |
 | [[01-claude skills/perfetto-stack-evidence-hunter/SKILL.md\|perfetto-stack-evidence-hunter]] | 栈证据追踪 |
@@ -28,14 +47,24 @@
 | [[01-claude skills/perfetto-trace-intake/SKILL.md\|perfetto-trace-intake]] | Trace 摄入 |
 | [[01-claude skills/perfetto-trace-observability-auditor/SKILL.md\|perfetto-trace-observability-auditor]] | Trace 可观测审计 |
 | [[01-claude skills/perfetto-triage-reasoner/SKILL.md\|perfetto-triage-reasoner]] | Perfetto 分诊 |
-| [[01-claude skills/report-generator/SKILL.md\|report-generator]] | 报告生成器 |
+| [[01-claude skills/performance-engineer/SKILL.md\|performance-engineer]] | 性能优化 |
+| [[01-claude skills/permission/SKILL.md\|permission]] | 权限自动放行 |
+| [[01-claude skills/planning-with-files/SKILL.md\|planning-with-files]] | 文件规划 |
+| [[01-claude skills/prd-implementation-precheck/SKILL.md\|prd-implementation-precheck]] | PRD 实现预检 |
+| [[01-claude skills/prd-planner/SKILL.md\|prd-planner]] | PRD 创建 |
+| [[01-claude skills/qa-expert/SKILL.md\|qa-expert]] | QA 专家 |
+| [[01-claude skills/refactoring-specialist/SKILL.md\|refactoring-specialist]] | 代码重构 |
+| [[01-claude skills/report-generator/SKILL.md\|report-generator]] | 数据报告生成 |
 | [[01-claude skills/security-auditor/SKILL.md\|security-auditor]] | 安全审计 |
-| [[01-claude skills/sidian-charter/SKILL.md\|sidian-charter]] | sidian-charter 同步 |
-| [[skills/01-claude skills/skill-creator/SKILL.md\|skill-creator]] | Skill 创建 |
+| [[01-claude skills/self-improving-agent/SKILL.md\|self-improving-agent]] | 自我改进代理 |
+| [[01-claude skills/session-logger/SKILL.md\|session-logger]] | 会话记录 |
+| [[01-claude skills/skill-creator/SKILL.md\|skill-creator]] | Skill 创建 |
 | [[01-claude skills/skill-router/SKILL.md\|skill-router]] | Skill 路由 |
+| [[01-claude skills/skywork-ppt/SKILL.md\|skywork-ppt]] | PPT 生成 |
+| [[01-claude skills/test-automator/SKILL.md\|test-automator]] | 测试自动化 |
 | [[01-claude skills/translation/SKILL.md\|translation]] | 翻译 |
 | [[01-claude skills/using-superpowers/SKILL.md\|using-superpowers]] | Superpowers 使用 |
-| [[01-claude skills/vercel-react-native-skills/SKILL.md\|vercel-react-native-skills]] | Vercel React Native |
+| [[01-claude skills/workflow-orchestrator/SKILL.md\|workflow-orchestrator]] | 工作流编排 |
 
 ---
 
@@ -79,3 +108,7 @@
 | [[02-claw skills/web-design-guidelines/SKILL.md\|web-design-guidelines]] | Web 设计规范 |
 | [[02-claw skills/word-docx/SKILL.md\|word-docx]] | Word DOCX |
 | [[02-claw skills/xiucheng-self-improving-agent/SKILL.md\|xiucheng-self-improving-agent]] | 自我改进 |
+
+---
+
+*自动生成于 2026-04-14*
