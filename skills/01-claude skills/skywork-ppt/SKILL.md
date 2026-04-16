@@ -31,7 +31,7 @@ If you don't have an API key yet, please visit:
 **https://skywork.ai**
 
 For detailed setup instructions, see:
-[references/apikey-fetch.md](apikey-fetch.md)
+[references/apikey-fetch.md](references/apikey-fetch.md)
 
 ---
 

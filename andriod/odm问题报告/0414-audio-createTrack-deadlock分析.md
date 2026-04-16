@@ -56,21 +56,32 @@ tid 9197: closeOutput() → 持有 AudioPolicyService_Mutex → 等待 tid 16289
 tid 16289: PlaybackThread → standby() → ioctl → 等待 HAL 响应
 ```
 
-### 第二层：HAL 进程内部死锁
+### 第二层：HAL 进程内部死锁（已修正）
 
 ```
-tid 9027 (主线程): StreamInPrimary::Standby()
-    → stream_mutex_.lock() 持有
-    → rm->lockGraph() 等待 ←─────────────┐
-    ↓                                      │ 等待
-tid 9036: StreamCompress::close()         │
-    → rm->lockGraph() 已持有               │
-    → session->close() 卡住 ←──────────────┘
-        (agm_session_aif_connect + graph_stop 无响应)
+tid 9036: StreamCompress::close()
+    → rm->lockGraph() 已持有
+    → SessionAlsaCompress::close()
+        → SessionAlsaUtils::close()
+        → worker_thread->join()           ← 等待 tid 16295 退出
+            ↓ 等待
+tid 16295 (writer): offloadThreadLoop()
+    → compress_wait()                    ← 等待 DSP 响应
+        ↓ 等待
+DSP 固件: GRAPH_CLOSE 无响应
 
 tid 14796: StreamOutPrimary::Standby()
     → stream_mutex_.lock() 等待 tid 9027 释放
 ```
+
+**关键发现：`worker_thread->join()` 阻塞！**
+
+Tombstone 证据：
+| 线程 | 函数 | 状态 |
+|------|------|------|
+| tid 9036 | `SessionAlsaCompress::close()` line 1584 | `worker_thread->join()` 等待 |
+| tid 16295 | `offloadThreadLoop()` line 616 | `compress_wait()` 等待 DSP |
+| tid 9027 | `StreamPCM::stop()` line 727 | `lockGraph()` 等待 tid 9036 |
 
 ---
 
@@ -79,15 +90,22 @@ tid 14796: StreamOutPrimary::Standby()
 ```
 tid 9036 调用 pal_stream_close
     ↓
-session->close() → AGM 内部
-    → agm_session_aif_connect (disconnecting)
-    → graph_stop: entry → **卡住，无响应**
+StreamCompress::close()
+    → rm->lockGraph() 获取锁
+    → SessionAlsaCompress::close()
+        → worker_thread->join()           ← 等待 tid 16295 退出
+            ↓ 等待
+tid 16295: offloadThreadLoop()
+    → compress_wait()                    ← 等待 DSP 响应（设备已异常）
+        ↓ 等待
+DSP 固件: GRAPH_CLOSE 无响应            ← 核心阻塞点
+    ↓
+tid 16295 永不退出 → join() 永不返回
     ↓
 rm->lockGraph() 锁无法释放
     ↓
-tid 9027 等待 lockGraph → 持有 stream_mutex_
-    ↓
-tid 14796 等待 stream_mutex_
+tid 9027 (INPUT): StreamPCM::stop() → lockGraph() 等待 tid 9036
+tid 14796 (OUTPUT): StreamOutPrimary::Standby() → stream_mutex_ 等待 tid 9027
     ↓
 所有 standby 调用阻塞 → HAL 无响应
     ↓
@@ -96,15 +114,44 @@ PlaybackThread 卡住 → closeOutput 等待
 AudioPolicyService_Mutex 持有 → createTrack 超时
 ```
 
+### Tombstone 关键堆栈确认
+
+#### tid 9036 (HwBinder:9027_2) - close 调用方
+```
+SessionAlsaCompress::close(Stream*) + 2308  @ SessionAlsaCompress.cpp:1584
+StreamCompress::close() + 340  @ StreamCompress.cpp:250
+pal_stream_close.cfi + 548  @ Pal.cpp:278
+StreamOutPrimary::Standby() + 920  @ AudioStream.cpp:2229
+StreamOutPrimaryCustom::Standby() + 364  @ AudioStreamCustom.cpp:382
+astream_out_standby() + 468  @ AudioStream.cpp:671
+Stream::standby() + 60  @ Stream.cpp:341
+```
+**关键：tid 9036 在 `worker_thread->join()` 处等待**
+
+#### tid 16295 (writer) - offload 工作线程
+```
+SessionAlsaCompress::offloadThreadLoop() + 868  @ SessionAlsaCompress.cpp:616
+compress_wait + 60  @ compress.c:608
+agm_compress_poll.cfi + 164  @ agm_compress_plugin.c:767
+```
+**关键：tid 16295 在 `compress_wait()` 处永久等待 DSP**
+
+#### tid 16352 (vndbinder:9027_) - PlaybackThread
+```
+ioctl + 12
+IPCThreadState::talkWithDriver() + 280
+```
+**关键：PlaybackThread 在 ioctl 处等待 HAL 响应**
+
 ---
 
 ## tid 9036 卡住详细分析
 
 ### 日志证据（基于 -1_ne_2.log 修正）
 
-**关键发现：`gsl_send_spf_cmd opcode 0x1001004` (GRAPH_CLOSE) 在 `graph_stop exit` 之前发送！**
+**关键发现：`session->close()` 根本没有被调用！异常流程缺失 `session_close enter/exit` 日志！**
 
-#### 异常流程原log（tid 9036, 02:45:46.968）
+#### 异常流程原log（tid 9036, 02:45:46.968，卡住）
 
 ```
 1033423:04-11 02:45:46.968  9027  9036 I PAL: API: pal_stream_close: 259: Enter. Stream handle :0xb400007d86295f50K
@@ -129,7 +176,7 @@ AudioPolicyService_Mutex 持有 → createTrack 超时
 // 之后无日志，卡在 gsl_close 内部
 ```
 
-#### 正常 close 流程原log（tid 9356, 02:42:58.212）
+#### 正常 close 流程原log（tid 9036, 02:45:46.661，正常返回）
 
 ```
 35604:04-11 02:42:58.212  9027  9356 D AGM: session: session_close: 1270 enter
@@ -147,50 +194,44 @@ AudioPolicyService_Mutex 持有 → createTrack 超时
 
 #### 关键差异对比
 
-| 特征                    | 正常流程 (tid 9356)                       | 异常流程 (tid 9036)             |
-| --------------------- | ------------------------------------- | --------------------------- |
-| 函数入口                  | `session_close: 1270 enter`           | `pal_stream_close: Enter`   |
-| graph_close entry     | ✅ 有 `graph_close: 791 entry`          | ❌ **缺失**                    |
-| graph_close exit      | ✅ 有 `graph_close: 816 exit, ret 0`    | ❌ **缺失**                    |
-| session_close exit    | ✅ 有 `session_close: 1319 exit, ret 0` | ❌ **缺失**                    |
-| graph_stop entry/exit | 无（走的是 close 路径）                       | ✅ 有 `graph_stop entry/exit` |
-| `gsl_send_spf_cmd` 时机 | 在 `graph_close entry` 之后              | 在 `graph_stop` 期间           |
-| 最终状态                  | 正常返回                                  | **卡住，无后续日志**                |
+| 特征 | 正常流程 (tid 9036, 02:45:46.661) | 异常流程 (tid 9036, 02:45:46.968) |
+|------|-----------------------------------|-----------------------------------|
+| `session_close enter` | ✅ 有 | ❌ **缺失** |
+| `graph_close entry` | ✅ 有 | ❌ **缺失** |
+| `graph_close exit` | ✅ 有 | ❌ **缺失** |
+| `session_close exit` | ✅ 有 | ❌ **缺失** |
+| `pal_stream_close Exit` | ✅ 有 | ❌ **缺失** |
+| 最终状态 | 正常返回 | **卡住** |
 
-### 代码流程（StreamCompress::close）
+### 代码调用链分析
 
-```cpp
-// line 249-251
-rm->lockGraph();                    // 获取锁
-status = session->close(this);      // 内部 graph_close 卡住！
-rm->unlockGraph();                  // 永远不会执行
+#### session->close() 正确调用链
+
+```
+StreamCompress::close()                           // StreamCompress.cpp:228
+    → rm->lockGraph()                             // line 249
+    → session->close(this)                         // line 250
+        → SessionAgm::close(Stream *s)            // SessionAgm.cpp:372
+            → agm_session_close(agmSessHandle)    // line 383
+                → session_obj_close(handle)       // agm.c:716
+                    → session_close(sess_obj)    // session_obj.c:2253
+                        → graph_close(...)       // line 1285
+                            → gsl_close(...)     // line 793
 ```
 
-### session_close 内部调用链
+#### 关键发现：`session->close()` 未被调用
 
-```c
-session_close() {
-    pthread_mutex_lock(&hwep_lock);     // 1277
-    if (sess_obj->state == SESSION_STARTED) {
-        graph_stop(...);   // 1279 - exit ret 0 ✅
-    }
-    graph_close(...);      // 1285 - 无 exit 日志 ❌ 卡住点
-    pthread_mutex_unlock(&hwep_lock);  // 1316 永远不会执行
-}
-```
+从日志对比：
+- **正常流程**：`SessionAlsaUtils: close` → `session_close: enter` → `graph_close: entry` → 正常返回
+- **异常流程**：`SessionAlsaUtils: close` → `session_obj_set_sess_aif_metadata` → **没有 session_close 日志**
 
-### graph_close 内部卡住点
+**说明 `session->close()` 在异常流程中根本没有被执行！**
 
-```c
-graph_close() {
-    pthread_mutex_lock(&graph_obj->lock);  // 790
-    ret = gsl_close(graph_obj->graph_handle);  // 793 ← 卡住！
-    // 后续代码不会执行
-    pthread_mutex_unlock(&graph_obj->lock);    // 813 不会执行
-    pthread_mutex_destroy(&graph_obj->lock);   // 814 不会执行
-    free(graph_obj);                           // 815 不会执行
-}
-```
+#### 可能原因
+
+1. **`rm->lockGraph()` 获取失败**：如果锁被其他线程持有且永不释放，`session->close()` 永远不会被调用
+2. **`currentState` 状态异常**：StreamCompress::close() 在 line 233 检查状态，如果已经是 STREAM_IDLE 会提前返回
+3. **`lockGraph()` 实现问题**：需要检查 `lockGraph()` 是否有超时机制或是否会永久阻塞
 
 ### 卡住点确认
 
@@ -285,30 +326,36 @@ int32_t gsl_send_spf_cmd(...) {
 
 ## 根因总结
 
-### 第一层根因：gsl_send_spf_cmd_wait_for_basic_rsp() 永久等待 DSP 响应
+### 第一层根因：`compress_wait()` 永久等待 DSP 响应
 
-**tid 9036** 调用 `session->close(this)` 后：
-- `graph_stop` 正常返回（exit ret 0）
-- `gsl_graph_close_sgids_and_connections` 发送 GRAPH_CLOSE 命令（opcode 0x1001004）
-- `gsl_signal_timedwait` 等待 `graph_signal[GRAPH_CTRL_GRP3_CMD_SIG]`
-- **DSP 永远不响应，信号永不设置，`gsl_signal_timedwait` 永久阻塞**
-- 调用栈一直卡在 `gsl_send_spf_cmd_wait_for_basic_rsp` 内部
+**tid 16295 (writer)** 工作线程执行 `offloadThreadLoop()`:
+- 调用 `compress_wait(compress, -1)` (line 616)
+- 等待 DSP 固件响应音频数据
+- **DSP 不响应，`compress_wait()` 永不返回**
+- 工作线程永不退出
 
-### 第二层根因：gsl_graph_close() 获取 open_close_lock 后永不释放
+### 第二层根因：`worker_thread->join()` 永久等待工作线程退出
 
-- `gsl_graph_close` 在 line 4298 获取 `open_close_lock`
-- 由于 `gsl_send_spf_cmd_wait_for_basic_rsp` 永不返回
-- `gsl_graph_close` 永远无法执行到 `GSL_MUTEX_UNLOCK(lock)` (line 4338)
-- **`open_close_lock` 被永久持有**
+**tid 9036** 执行 `SessionAlsaCompress::close()`:
+- 调用 `worker_thread->join()` (line 1584)
+- 等待 tid 16295 (writer) 线程退出
+- 由于 `compress_wait()` 永不返回，工作线程永不退出
+- **`join()` 永久阻塞**
 
-### 第三层根因：HAL 锁连锁阻塞
+### 第三层根因：`rm->lockGraph()` 被永久持有
 
-- `rm->lockGraph()` 在 `session->close()` 之前被 tid 9036 获取
-- 由于 `session->close()` 永不返回，`rm->unlockGraph()` 永不执行
-- tid 9027 (INPUT stop) 和所有等待 `lockGraph()` 的线程永久阻塞
-- 最终导致 `createTrack` 超时
+- tid 9036 在 `SessionAlsaCompress::close()` 之前获取了 `lockGraph()`
+- 由于 `join()` 永不返回，`SessionAlsaCompress::close()` 永不返回
+- `rm->unlockGraph()` 永不执行
+- **`lockGraph()` 被永久持有**
 
-### 第四层根因：DSP 固件 GRAPH_CLOSE 处理异常
+### 第四层根因：HAL 锁连锁阻塞
+
+- tid 9027 (INPUT): `StreamPCM::stop()` → `lockGraph()` 等待 tid 9036
+- tid 14796 (OUTPUT): `StreamOutPrimary::Standby()` → `stream_mutex_` 等待 tid 9027
+- 所有 standby 调用阻塞 → 最终导致 `createTrack` 超时
+
+### 第五层根因：DSP 固件 GRAPH_CLOSE 处理异常
 
 - `device is not open` 表明设备状态异常
 - 可能导致 DSP 无法正确处理 GRAPH_CLOSE 命令
@@ -360,32 +407,41 @@ int32_t gsl_send_spf_cmd(...) {
 
 ### PAL/AGM 层
 
-| 文件 | 行号 | 说明 |
-|------|------|------|
-| `StreamCompress.cpp` | 249-251 | lockGraph + session->close() |
-| `graph.c` | 780-818 | graph_close → gsl_close |
-| `session_obj.c` | 1262-1321 | session_close 流程 |
-| `StreamPCM.cpp` | 727 | INPUT stop 等待 lockGraph |
+| 文件 | 行号 | 说明 | 证据 |
+|------|------|------|------|
+| `StreamCompress.cpp` | 249-251 | lockGraph + session->close() | - |
+| `StreamCompress.cpp` | 228-271 | **StreamCompress::close 完整流程** | tombstone line 727 |
+| `graph.c` | 780-818 | graph_close → gsl_close | - |
+| `session_obj.c` | 1262-1321 | session_close 流程 | - |
+| `StreamPCM.cpp` | 704, 727 | **INPUT/OUTPUT stop 等待 lockGraph** | tombstone lockGraph 堆栈 |
+| `SessionAgm.cpp` | 372-389 | SessionAgm::close 流程 | - |
 
 ### GSL 层
 
 | 文件 | 行号 | 说明 |
 |------|------|------|
 | `gsl_main.c` | 1325-1360 | gsl_close 完整流程 |
-| `gsl_main.c` | 1331 | gsl_main_start_client_op_blocking |
 | `gsl_main.c` | 1344 | gsl_graph_close 调用 |
 | `gsl_graph.c` | 4292-4341 | **gsl_graph_close 核心实现** |
-| `gsl_graph.c` | 2142-2146 | gsl_send_spf_cmd_wait_for_basic_rsp 调用 |
+| `gsl_graph.c` | 2142 | gsl_send_spf_cmd_wait_for_basic_rsp 调用 |
 | `gsl_common.c` | 142-221 | **gsl_send_spf_cmd 等待响应** |
 | `gsl_common.c` | 189 | gsl_signal_timedwait 超时等待 |
-| `gsl_common.c` | 53-78 | gsl_signal_timedwait 实现 |
+| `gsl_common.c` | 198 | "Wait done" 日志（缺失 = 超时） |
 
 ### AudioStream 层
 
-| 文件 | 行号 | 说明 |
+| 文件 | 行号 | 说明 | 证据 |
+|------|------|------|------|
+| `AudioStream.cpp` | 2186 | StreamOutPrimary::Standby 流锁 | tombstone line 2204 |
+| `AudioStream.cpp` | 4234 | StreamInPrimary::Standby 流锁 | tombstone line 4248 |
+
+### Tombstone 证据
+
+| 线程 | 函数 | 状态 |
 |------|------|------|
-| `AudioStream.cpp` | 2186 | StreamOutPrimary::Standby 流锁 |
-| `AudioStream.cpp` | 2296 | Standby Exit 日志 |
+| tid 9036 | `gsl_send_spf_cmd` | 发送 GRAPH_CLOSE 后永久等待 |
+| tid 9027 | `StreamPCM::stop()` | 等待 `lockGraph()` |
+| tid 14796 | `StreamOutPrimary::Standby()` | 等待 `stream_mutex_` |
 
 ---
 

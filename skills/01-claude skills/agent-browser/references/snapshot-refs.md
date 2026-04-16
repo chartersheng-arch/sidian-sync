@@ -2,7 +2,7 @@
 
 Compact element references that reduce context usage dramatically for AI agents.
 
-**Related**: [commands.md](commands.md) for full command reference, [SKILL.md](skills/01-claude%20skills/agent-browser/SKILL.md) for quick start.
+**Related**: [commands.md](commands.md) for full command reference, [SKILL.md](../SKILL.md) for quick start.
 
 ## Contents
 

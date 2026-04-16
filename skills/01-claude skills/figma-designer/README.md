@@ -217,6 +217,6 @@ Generates 4-file PRD with all visual specifications.
 
 ## See Also
 
-- [SKILL.md](skills/01-claude%20skills/figma-designer/SKILL.md) - Full skill definition with all templates
+- [SKILL.md](./SKILL.md) - Full skill definition with all templates
 - [prd-planner](../prd-planner/) - Create PRDs from design specs
 - [architecting-solutions](../architecting-solutions/) - Technical architecture

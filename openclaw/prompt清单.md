@@ -1,0 +1,1 @@
+「同步sidian到云端」→ 执行 git push Obsidian 双向同步，已建立 sidian-sync 仓库

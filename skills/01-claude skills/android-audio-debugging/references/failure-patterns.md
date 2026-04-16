@@ -68,6 +68,49 @@
 ```
 根因: HAL自动重采样质量差或未使能重采样
 
+**案例4: 淡入淡出/渐入淡出(Fade In/Out)导致的Pop音**
+
+**淡入淡出是系统级音频功能**：播放开始时自动增加音量（淡入），播放结束时自动减小音量（淡出），目的是**消除**播放开始/结束时的POP音。按键时触发则称为"键入淡出"。
+
+**问题场景**：在某些平台（MTK/高通）Fast Audio Path下，淡入淡出实现不完善，Gain跳变太快反而产生POP音。
+
+```
+现象: 播放开始/结束或按键时出现"咯噠"或"噗噗"声
+场景: 音频播放开始/结束、路由切换、按键触发时复现
+根因: 某些平台的Fast Audio Path在淡入淡出时Codec Gain未经平滑渐变，
+      直接跳变导致POP音；或淡入淡出参数配置不当
+```
+
+**【日志流程 - 淡入淡出触发】**（详见PDF 5.3）
+
+**点击播放（淡入）**：
+```
+AudioTrack: set() 包名: com.miui.player
+APM_AudioPolicyManager: getOutputForAttrInt() Usage: AUDIO_USAGE_MEDIA
+AF::Track: isFadeApp setFadeOut/InStatus(FADE_STATUS_INIT)  // 淡入淡出初始化
+AudioTrack: start() 开始淡入
+AF::Track: start setFadeInStatus(FADE_STATUS_START)
+APM_AudioPolicyManager: startOutput()
+AudioFlinger: track setFadeInStatus(FADE_STATUS_DONE)  // 淡入完成
+```
+
+**暂停/切歌（淡出）**：
+```
+AudioTrack: pause() 开始淡出
+AF::Track: pause setFadeOutStatus(FADE_STATUS_START)
+AudioFlinger: track setFadeOutStatus(FADE_STATUS_SETVOLUME)  // 设置淡出音量
+AF::Track: getNextBuffer setFadeOutStatus(FADE_STATUS_DONE)  // 淡出完成
+```
+
+| 排查方向 | 检查项 |
+|----------|--------|
+| 日志关键词 | setFadeOut / setFadeIn / isFadeApp / AudioTrack: s / AudioTrack: p / startoutput |
+| 平台确认 | 确认问题平台（MTK/高通/展锐） |
+| 音频路径 | 确认是否为Fast Audio Path |
+| HAL层 | 检查audio_hw.cpp中淡入淡出实现是否有Gain ramp处理 |
+
+**参考资料**: [Audio淡入淡出功能详解.docx 5.3日志流程]
+
 ---
 
 ## 3. 延迟问题 (Audio Latency)

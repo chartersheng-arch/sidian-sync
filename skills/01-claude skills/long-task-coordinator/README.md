@@ -89,5 +89,5 @@ A long-running operational task checks a queue periodically, persists each check
 
 ## References
 
-- [Detailed workflow](workflow.md)
-- [Eval prompts](prompts.md)
+- [Detailed workflow](./references/workflow.md)
+- [Eval prompts](./evals/prompts.md)

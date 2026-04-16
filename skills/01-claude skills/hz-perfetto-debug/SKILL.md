@@ -285,8 +285,8 @@ See the GPU analysis reference for detailed render pass breakdown, surface analy
 
 For detailed guides on specific topics, see:
 
-- [Capturing Traces](capturing-traces.md) — How to capture Perfetto traces on Quest
-- [Analyzing Traces](analyzing-traces.md) — Step-by-step trace analysis with SQL queries
-- [GPU Analysis](gpu-analysis.md) — Render pass analysis, GPU counters, and metrics
-- [Frame Timing](frame-timing.md) — VR frame markers, pacing, and compositor timing
-- [SQL Queries](sql-queries.md) — Ready-to-use SQL queries for common analysis tasks
+- [Capturing Traces](references/capturing-traces.md) — How to capture Perfetto traces on Quest
+- [Analyzing Traces](references/analyzing-traces.md) — Step-by-step trace analysis with SQL queries
+- [GPU Analysis](references/gpu-analysis.md) — Render pass analysis, GPU counters, and metrics
+- [Frame Timing](references/frame-timing.md) — VR frame markers, pacing, and compositor timing
+- [SQL Queries](references/sql-queries.md) — Ready-to-use SQL queries for common analysis tasks

@@ -1,7 +1,12 @@
 """Case Matcher - Match historical cases for audio problems."""
 import re
+import os
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+
+# Skill base directory for loading user_config.md
+SKILL_BASE_DIR = Path(__file__).parent.parent
 
 
 @dataclass
@@ -185,8 +190,15 @@ def match(
                 "root_cause": case.root_cause,
                 "solution": case.solution,
                 "platform": case.platform,
-                "notes": case.notes
+                "notes": case.notes,
+                "source": "builtin"
             })
+
+    # Search user knowledge bases
+    user_results = search_user_knowledge(features)
+    for result in user_results:
+        result["source"] = "user_knowledge"
+        matches.append(result)
 
     # Sort by similarity descending
     matches.sort(key=lambda x: x["similarity"], reverse=True)
@@ -194,8 +206,97 @@ def match(
     return {
         "matches": matches[:5],  # Top 5 matches
         "total_cases": len(BUILTIN_CASES),
+        "user_knowledge_dirs": [str(d) for d in load_user_knowledge_dirs()],
         "features": features
     }
+
+
+def load_user_knowledge_dirs() -> List[Path]:
+    """
+    Load user-configured knowledge base directories from user_config.md.
+
+    Returns:
+        List of Path objects for configured directories
+    """
+    config_file = SKILL_BASE_DIR / "user_config.md"
+    if not config_file.exists():
+        return []
+
+    dirs = []
+    with open(config_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+            # Skip section headers and format lines
+            if line.startswith("---") or line.startswith("|") or line.startswith("**"):
+                continue
+            # Treat as a directory path
+            path = Path(line)
+            if path.is_absolute() or (len(line) > 1 and line[1] == ":"):
+                # Absolute path (Windows D:\... or Unix /...)
+                dirs.append(path)
+            else:
+                # Relative path - resolve from skill base dir
+                dirs.append((SKILL_BASE_DIR / path).resolve())
+
+    return dirs
+
+
+def search_user_knowledge(
+    features: Dict[str, Any],
+    max_results: int = 3
+) -> List[Dict[str, Any]]:
+    """
+    Search user knowledge base directories for matching cases.
+
+    Args:
+        features: Problem features (error_code, module, platform, keywords)
+        max_results: Maximum number of results to return
+
+    Returns:
+        List of matching entries from user knowledge bases
+    """
+    user_dirs = load_user_knowledge_dirs()
+    if not user_dirs:
+        return []
+
+    results = []
+    search_text = " ".join([
+        features.get("error_code", "") or "",
+        features.get("module", "") or "",
+        features.get("platform", "") or "",
+        " ".join(features.get("keywords", []))
+    ]).lower()
+
+    for user_dir in user_dirs:
+        if not user_dir.exists():
+            continue
+
+        # Search all text files in the directory
+        for ext in ["*.md", "*.txt", "*.log"]:
+            for file_path in user_dir.rglob(ext):
+                try:
+                    content = file_path.read_text(encoding="utf-8", errors="ignore").lower()
+                    # Simple keyword overlap scoring
+                    keywords = features.get("keywords", [])
+                    matches = sum(1 for kw in keywords if kw.lower() in content)
+                    if matches >= 2:  # At least 2 keyword matches
+                        results.append({
+                            "title": f"[用户知识库] {file_path.name}",
+                            "similarity": min(matches / len(keywords) if keywords else 0.5, 0.99),
+                            "root_cause": f"详见文件: {file_path}",
+                            "solution": "请查阅用户知识库文件获取详情",
+                            "platform": features.get("platform", "未知"),
+                            "notes": f"匹配度: {matches}/{len(keywords)} 关键词"
+                        })
+                except Exception:
+                    continue
+
+    # Sort by similarity and limit results
+    results.sort(key=lambda x: x["similarity"], reverse=True)
+    return results[:max_results]
 
 
 def add_case(
