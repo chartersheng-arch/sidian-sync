@@ -5,6 +5,9 @@
 .claude/
 .claudian/
 
+# 资源文件集中目录（不推送到 GitHub）
+assets res/
+
 # 忽略所有 .md 以外的文件（按需调整）
 # *.png
 # *.jpg

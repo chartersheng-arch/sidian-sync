@@ -9,17 +9,18 @@
 
 ---
 
-## 关键事件时间线
+> [!事件对应的原始log]
+> ## 关键事件时间线
 
-| 时间 | 事件 | 线程/Session | 说明 |
-|------|------|--------------|------|
-| 19:09:00.824 | PowerHAL enter camera_video_1080p scene | system_server | 开始录像场景 |
-| 19:09:02.667 | AudioRecord start session 47801 | com.android.camera | 录像录音启动 |
-| 19:09:10.624 | AudioRecord start session 47817 | com.miui.screenrecorder | 录屏主录音启动 |
-| 19:09:10.751 | AudioRecord start session 47809 | com.miui.screenrecorder | 录屏副录音启动 |
-| 19:09:10.912 | **Critical HAL Block** | AudioIn_4E (tid=25965) | 录像录音HAL阻塞 |
-| 19:09:16.160 | AudioRecord stop session 47817 | com.miui.screenrecorder | 停止录屏 |
-| 19:09:17.190 | AudioRecord stop session 47801 | com.android.camera | 停止录像 |
+| 时间           | 事件                                      | 线程/Session              | 说明        |
+| ------------ | --------------------------------------- | ----------------------- | --------- |
+| 19:09:00.824 | PowerHAL enter camera_video_1080p scene | system_server           | 开始录像场景    |
+| 19:09:02.667 | AudioRecord start session 47801         | com.android.camera      | 录像录音启动    |
+| 19:09:10.624 | AudioRecord start session 47817         | com.miui.screenrecorder | 录屏主录音启动   |
+| 19:09:10.751 | AudioRecord start session 47809         | com.miui.screenrecorder | 录屏副录音启动   |
+| 19:09:10.912 | **Critical HAL Block**                  | AudioIn_4E (tid=25965)  | 录像录音HAL阻塞 |
+| 19:09:16.160 | AudioRecord stop session 47817          | com.miui.screenrecorder | 停止录屏      |
+| 19:09:17.190 | AudioRecord stop session 47801          | com.android.camera      | 停止录像      |
 
 ---
 
@@ -29,10 +30,10 @@
 
 在19:09:10.624时刻，录屏应用同时创建了**3个AudioRecord输入流**：
 
-| 输入ID | 采样率 | 通道数 | 类型 | TID |
-|--------|--------|--------|------|-----|
-| AudioIn_56 | 44100 | 2ch | RemoteSubmix | 26059 |
-| AudioIn_5E | 44100 | 1ch | MIC | 26064 |
+| 输入ID       | 采样率   | 通道数 | 类型                  | TID   |
+| ---------- | ----- | --- | ------------------- | ----- |
+| AudioIn_56 | 44100 | 2ch | RemoteSubmix        | 26059 |
+| AudioIn_5E | 44100 | 1ch | MIC                 | 26064 |
 | AudioIn_66 | 44100 | 1ch | Voice_communication | 26067 |
 
 而此时**录像录音线程 AudioIn_4E (tid=25965)** 正在运行，其正常周期为40.27ms。
@@ -53,7 +54,8 @@ PerfSense: [AudioIn_4E] Critical Jitter Error: Cycle=186.22ms, exceeds 3.00x!
 PerfSense: [AudioIn_4E] Critical HAL Block: HAL write blocked for 186.15ms, exceeds 3.0x period (40.27ms)
 ```
 
-### 3. 阻塞机理
+> [!trace点位图]
+> ### 3. 阻塞机理
 
 ```
 [AudioIn_4E 录像录音]
@@ -76,7 +78,7 @@ PerfSense: [AudioIn_4E] Critical HAL Block: HAL write blocked for 186.15ms, exce
 
 ## 问题定位
 
-### 受影响线程
+### 受影响线程[^1]
 
 | 线程名 | TID | 所属应用 | 问题 |
 |--------|-----|----------|------|
@@ -96,7 +98,7 @@ PerfSense: [AudioIn_4E] Critical HAL Block: HAL write blocked for 186.15ms, exce
 
 ---
 
-## 结论
+## 结论[^2]
 
 **问题类型**: HAL资源竞争导致的音频underrun
 
@@ -118,3 +120,9 @@ PerfSense: [AudioIn_4E] Critical HAL Block: HAL write blocked for 186.15ms, exce
 - trace文件: `trace-somalia-BP2A.250605.031.A3-2026-01-21-19-10-51.perfetto-trace`
 - 日志文件: `0-android.log` (line 69695-69697, 75729-75731)
 - 音频参数: `audio_param/audio_structure`, `audio_param/dsp_vbc`
+
+[^1]: 问题相关信息 前移
+	
+
+[^2]: 要再检查一下论证结果
+	
